@@ -20,6 +20,12 @@ type Request struct {
 	Body   string
 }
 
+/*
+ * parseRequest handles client's incoming connections.
+ * Stripping Headers, Path, ContentType and Body, then
+ * places them into the Request type provided by the
+ * package.
+ */
 func parseRequest(conn net.Conn) (*Request, error) {
 	reader := bufio.NewReader(conn)
 	dat, err := reader.ReadString('\n')
@@ -37,6 +43,7 @@ func parseRequest(conn net.Conn) (*Request, error) {
 		Path:   part[1],
 	}
 
+	// Read connection payload by line until end of file
 	for {
 		dat, err = reader.ReadString('\n')
 		if err != nil {

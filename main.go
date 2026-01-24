@@ -27,6 +27,9 @@ type Server struct {
 	//IdleTimeout  time.Duration
 }
 
+/*
+ * ListenAndServe starts a server listening on the given address and handler.
+ */
 func (s *Server) ListenAndServe() error {
 	addr := strings.Split(s.Addr, ":")
 
@@ -49,6 +52,9 @@ func (s *Server) ListenAndServe() error {
 	return s.Serve(list)
 }
 
+/*
+ * Serves a Server type using a net.Listener interface as parameter
+ */
 func (s *Server) Serve(l net.Listener) error {
 	for {
 		conn, err := l.Accept()
@@ -60,17 +66,23 @@ func (s *Server) Serve(l net.Listener) error {
 	}
 }
 
+/*
+ * Handle connections on listeners. Respond with bad request if error
+ * is encoutered error while parsing. Else, serve request if valid
+ */
 func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
-
-	req, err := parseRequest(conn)
-	if err != nil {
-		return
-	}
 
 	res := &response{
 		conn:   conn,
 		writer: bufio.NewWriter(conn),
+	}
+
+	req, err := parseRequest(conn)
+	if err != nil {
+		// Respond with HTTP Status BadRequest
+		res.WriteHeader(400)
+		return
 	}
 
 	s.Handler.ServeHTTP(res, req)
