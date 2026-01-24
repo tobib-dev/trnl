@@ -17,7 +17,7 @@ type RequestHeader struct {
 
 type Request struct {
 	Header RequestHeader
-	Body   string
+	Body   io.Reader
 }
 
 /*
