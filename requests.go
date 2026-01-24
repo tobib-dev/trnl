@@ -63,13 +63,13 @@ func parseRequest(conn net.Conn) (*Request, error) {
 		}
 	}
 
-	bodyBytes := make([]byte, 0)
+	bodyBytes := new(bytes.Buffer)
 	tempBuffer := new(bytes.Buffer)
 	_, err = io.Copy(tempBuffer, reader)
 	if err != nil && err != io.EOF {
 		return &Request{}, err
 	}
-	bodyBytes = tempBuffer.Bytes()
+	bodyBytes = tempBuffer
 
-	return &Request{Header: header, Body: string(bodyBytes)}, nil
+	return &Request{Header: header, Body: bodyBytes}, nil
 }
