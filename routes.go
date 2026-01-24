@@ -1,4 +1,4 @@
-package main
+package trnl
 
 import (
 	"sync/atomic"
