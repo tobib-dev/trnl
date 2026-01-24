@@ -81,7 +81,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 	req, err := parseRequest(conn)
 	if err != nil {
 		// Respond with HTTP Status BadRequest
-		res.WriteHeader(400)
+		res.WriteHeader(StatusBadRequest)
 		return
 	}
 
