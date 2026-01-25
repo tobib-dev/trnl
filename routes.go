@@ -43,54 +43,40 @@ func Default() Mux {
 /*
  * Add Get requests multiplexer
  */
-func (m Mux) Get(path string, handler any) {
-	switch h := handler.(type) {
-	case Handler:
-		m.routes[routeKey{method: "GET", path: path}] = h
-	case func(ResponseWriter, *Request):
-		m.routes[routeKey{method: "GET", path: path}] = HandlerFunc(h)
-	default:
-		panic("Invalid handler type, handler must be Handler interface or func(ResponseWriter, *Request)")
-	}
+func (m *Mux) Get(path string, handler any) {
+	m.handle("GET", path, handler)
 }
 
 /*
  * Add Post requests to multiplexer
  */
-func (m Mux) Post(path string, handler any) {
-	switch h := handler.(type) {
-	case Handler:
-		m.routes[routeKey{method: "POST", path: path}] = h
-	case func(ResponseWriter, *Request):
-		m.routes[routeKey{method: "POST", path: path}] = HandlerFunc(h)
-	default:
-		panic("Invalid handler type, handler must be Handler interface or func(ResponseWriter, *Request)")
-	}
+func (m *Mux) Post(path string, handler any) {
+	m.handle("POST", path, handler)
 }
 
 /*
  * Add Put/Update requests to multiplexer
  */
-func (m Mux) Put(path string, handler any) {
-	switch h := handler.(type) {
-	case Handler:
-		m.routes[routeKey{method: "PUT", path: path}] = h
-	case func(ResponseWriter, *Request):
-		m.routes[routeKey{method: "PUT", path: path}] = HandlerFunc(h)
-	default:
-		panic("Invalid handler type, handler must be Handler interface or func(ResponseWriter, *Request)")
-	}
+func (m *Mux) Put(path string, handler any) {
+	m.handle("PUT", path, handler)
 }
 
 /*
  * Add delete request to multiplexer
  */
-func (m Mux) Delete(path string, handler any) {
+func (m *Mux) Delete(path string, handler any) {
+	m.handle("DELETE", path, handler)
+}
+
+/*
+ * Map methods and paths to handler functions
+ */
+func (m Mux) handle(method, path string, handler any) {
 	switch h := handler.(type) {
 	case Handler:
-		m.routes[routeKey{method: "DELETE", path: path}] = h
+		m.routes[routeKey{method: method, path: path}] = h
 	case func(ResponseWriter, *Request):
-		m.routes[routeKey{method: "DELETE", path: path}] = HandlerFunc(h)
+		m.routes[routeKey{method: method, path: path}] = HandlerFunc(h)
 	default:
 		panic("Invalid handler type, handler must be Handler interface or func(ResponseWriter, *Request)")
 	}
