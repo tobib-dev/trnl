@@ -3,8 +3,10 @@ package trnl
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
 	"strings"
+	"time"
 )
 
 type Handler interface {
@@ -20,9 +22,9 @@ type Listener struct {
 }
 
 type Server struct {
-	Addr    string
-	Handler Handler
-	//ReadTimeout  time.Duration
+	Addr        string
+	Handler     Handler
+	ReadTimeout time.Duration
 	//WriteTimeout time.Duration
 	//IdleTimeout  time.Duration
 }
@@ -60,6 +62,15 @@ func (s *Server) Serve(l net.Listener) error {
 		conn, err := l.Accept()
 		if err != nil {
 			return err
+		}
+
+		// Set Server ReadTimeout only if positive
+		if s.ReadTimeout > 0 {
+			if err := conn.SetReadDeadline(time.Now().Add(s.ReadTimeout)); err != nil {
+				log.Printf("failed to set read deadline (timeout=%v, remote=%s): %v", s.ReadTimeout, conn.RemoteAddr(), err)
+				conn.Close()
+				continue
+			}
 		}
 
 		go s.handleConnection(conn)

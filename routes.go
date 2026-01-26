@@ -1,6 +1,7 @@
 package trnl
 
 import (
+	"log"
 	"sync/atomic"
 )
 
@@ -34,6 +35,7 @@ func (m Mux) ServeHTTP(w ResponseWriter, r *Request) {
  * Generate and return default multiplexer or mini-router
  */
 func Default() Mux {
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	return Mux{
 		id:     atomic.AddUint64(&muxIDCounter, 1),
 		routes: make(map[routeKey]Handler),

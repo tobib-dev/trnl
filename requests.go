@@ -9,6 +9,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type RequestHeader struct {
@@ -34,10 +35,12 @@ func parseRequest(conn net.Conn) (*Request, error) {
 	reader := bufio.NewReader(conn)
 	dat, err := reader.ReadString('\n')
 	if err != nil {
+		if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			return &Request{}, fmt.Errorf("Timeout reading request line: %w", err)
+		}
 		return &Request{}, err
 	}
-	// Log request header and time
-	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+
 	log.Printf("Header: %s\n", dat)
 
 	part := strings.Fields(strings.TrimSpace(dat))
@@ -53,6 +56,7 @@ func parseRequest(conn net.Conn) (*Request, error) {
 		Method:          part[0],
 		Path:            part[1],
 		ProtocolVersion: protVer,
+		ContentLength:   0,
 	}
 
 	var cntLen int
@@ -60,6 +64,9 @@ func parseRequest(conn net.Conn) (*Request, error) {
 	for {
 		dat, err = reader.ReadString('\n')
 		if err != nil {
+			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+				return &Request{}, fmt.Errorf("Timeout reading headers: %w", err)
+			}
 			return &Request{}, err
 		}
 		dat = strings.TrimSpace(dat)
@@ -80,25 +87,26 @@ func parseRequest(conn net.Conn) (*Request, error) {
 			if len(cl) == 2 {
 				cntLen, err = strconv.Atoi(strings.TrimSpace(cl[1]))
 				if err != nil {
-					return &Request{}, fmt.Errorf("invalid Content-Length: %s", cl[1])
+					return &Request{}, fmt.Errorf("Invalid Content-Length: %s", cl[1])
 				}
 			}
 		}
+	}
+
+	// Clear the read deadline now that headers are parsed successfully
+	if err := conn.SetReadDeadline(time.Time{}); err != nil {
+		return &Request{}, fmt.Errorf("Failed to clear read deadline: %w", err)
 	}
 
 	// Copy body into type request body field
 	bodyBytes := new(bytes.Buffer)
 	if cntLen > 0 {
 		header.ContentLength = cntLen
-	} else {
-		header.ContentLength = 0
 	}
-	n, err := copyBody(bodyBytes, reader, header.ContentLength)
+
+	_, err = copyBody(bodyBytes, reader, header.ContentLength)
 	if err != nil && err != io.EOF {
-		return &Request{}, fmt.Errorf("failed to read request body: %w", err)
-	}
-	if n != int64(header.ContentLength) {
-		return &Request{}, fmt.Errorf("incomplete request body: read %d bytes, expected %d", n, cntLen)
+		return &Request{}, fmt.Errorf("Failed to read request body: %w", err)
 	}
 
 	return &Request{Header: header, Body: bodyBytes}, nil
