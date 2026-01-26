@@ -5,7 +5,7 @@ import (
 	"net"
 )
 
-type response struct {
+type Response struct {
 	conn   net.Conn
 	writer *bufio.Writer
 	header string
