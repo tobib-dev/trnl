@@ -55,15 +55,26 @@ func (r *response) Header() Header {
 	return r.header
 }
 
-// Write Header to response
+/*
+ * Write Header to response
+ *
+ * For the case of this being a personal project, I have not included all
+ * HTTP response codes. Hence, WriteHeader may panic if the given code
+ * is not in already included in the status_codes.go file.
+ */
 func (r *response) WriteHeader(status int) {
 	if r.wroteHeader {
 		return
 	}
 	r.wroteHeader = true
 
+	msg, ok := StatusMessages[status]
+	if !ok {
+		log.Printf("Invalid status code: %d\n", status)
+		panic(fmt.Sprintf("Invalid HTTP status code: %d. Please use a valid HTTP resposne code.", status))
+	}
 	// Write protocol version and status
-	fmt.Fprintf(r.writer, "%s: %d\r\n", r.protVer, status)
+	fmt.Fprintf(r.writer, "%s: %d %s\r\n", r.protVer, status, msg)
 
 	// Write headers
 	if err := r.header.Write(r.writer); err != nil {
