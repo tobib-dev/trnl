@@ -15,3 +15,17 @@ const (
 	StatusRequestTimeout      = 408
 	StatusInternalServerError = 500
 )
+
+var StatusMessages = map[int]string{
+	StatusOK:                  "OK",
+	StatusCreated:             "Created",
+	StatusAccepted:            "Accepted",
+	StatusNoContent:           "No Content",
+	StatusBadRequest:          "Bad Request",
+	StatusUnauthorized:        "Unauthorized",
+	StatusForbidden:           "Forbidden",
+	StatusNotFound:            "Not Found",
+	StatusMethodNotAllowed:    "Method Not Allowed",
+	StatusRequestTimeout:      "Request Timeout",
+	StatusInternalServerError: "Internal Server Error",
+}
