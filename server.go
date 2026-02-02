@@ -3,8 +3,10 @@ package trnl
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
+	"os"
 	"strings"
 	"time"
 )
@@ -84,9 +86,22 @@ func (s *Server) Serve(l net.Listener) error {
 func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
+	// Create temporary file - for debugging
+	path := fmt.Sprintf("log_%s_%d.txt",
+		conn.RemoteAddr().String(),
+		time.Now().UnixNano())
+
+	logFile, err := os.Create(path)
+	if err != nil {
+		log.Printf("error creating response log file: %v", err)
+	}
+	defer logFile.Close()
+
+	mw := io.MultiWriter(conn, logFile)
+
 	res := &response{
 		conn:    conn,
-		writer:  bufio.NewWriter(conn),
+		writer:  bufio.NewWriter(mw),
 		header:  make(Header),
 		protVer: "HTTP/1.1",
 	}
