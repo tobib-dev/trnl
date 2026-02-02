@@ -4,28 +4,24 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"net"
-	"strconv"
 )
 
 type Header map[string][]string
 
 func (h Header) Set(key, value string) {
+	h[key] = []string{value}
+}
+
+func (h Header) Add(key, value string) {
 	h[key] = append(h[key], value)
 }
 
-func (h Header) Write(w io.Writer, status int, protVer string) error {
-	// Write Protocol version and status to response header
-	verAndStatus := fmt.Sprintf(protVer, strconv.Itoa(status))
-	_, err := w.Write([]byte(verAndStatus))
-	if err != nil {
-		return err
-	}
-
+func (h Header) Write(w io.Writer) error {
 	// Write header key and values to response header
 	for k, v := range h {
-		keyVal := fmt.Sprintf("%s: %s", k, v)
-		_, err := w.Write([]byte(keyVal))
+		_, err := fmt.Fprintf(w, "%s: %s\r\n", k, v)
 		if err != nil {
 			return err
 		}
