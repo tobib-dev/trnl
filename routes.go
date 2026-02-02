@@ -22,8 +22,7 @@ type Mux struct {
 func (m Mux) ServeHTTP(w ResponseWriter, r *Request) {
 	hdlr, ok := m.routes[routeKey{r.Header.Method, r.Header.Path}]
 	if !ok {
-		w.WriteHeader(StatusNotFound)
-		w.Write([]byte("404 Not Found"))
+		w.WriteHeader(StatusMethodNotAllowed)
 		return
 	}
 
