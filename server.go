@@ -85,8 +85,10 @@ func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	res := &response{
-		conn:   conn,
-		writer: bufio.NewWriter(conn),
+		conn:    conn,
+		writer:  bufio.NewWriter(conn),
+		header:  make(Header),
+		protVer: "HTTP/1.1",
 	}
 
 	req, err := parseRequest(conn)
@@ -96,5 +98,6 @@ func (s *Server) handleConnection(conn net.Conn) {
 		return
 	}
 
+	res.header.Set("location", req.Header.Path)
 	s.Handler.ServeHTTP(res, req)
 }
