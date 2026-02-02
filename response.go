@@ -31,12 +31,12 @@ func (h Header) Write(w io.Writer) error {
 }
 
 type response struct {
-	conn     net.Conn
-	writer   *bufio.Writer
-	header   Header
-	status   int
-	protVer  string
-	endpoint string
+	conn        net.Conn
+	writer      *bufio.Writer
+	header      Header
+	status      int
+	protVer     string
+	wroteHeader bool
 }
 
 type ResponseWriter interface {
@@ -52,18 +52,32 @@ func (r *response) Header() Header {
 
 // Write Header to response
 func (r *response) WriteHeader(status int) {
-	err := r.header.Write(r.writer, status, r.protVer)
-	if err != nil {
-		r.resetResponsePayload()
+	if r.wroteHeader {
+		return
 	}
-}
+	r.status = status
+	r.wroteHeader = true
 
-// Reset conn writer if write errors
-func (r *response) resetResponsePayload() {
-	r.writer.Reset(r.writer)
+	// Write protocol version and status
+	fmt.Fprintf(r.writer, "%s: %d\r\n", r.protVer, status)
+
+	// Write headers
+	if err := r.header.Write(r.writer); err != nil {
+		log.Printf("error writing header: %v", err)
+		return
+	}
+
+	r.writer.WriteString("\r\n")
 }
 
 // Write data to response body
 func (r *response) Write(p []byte) (int, error) {
+	if !r.wroteHeader {
+		r.WriteHeader(200)
+	}
 	return r.writer.Write(p)
+}
+
+func (r *response) Flush() error {
+	return r.writer.Flush()
 }
