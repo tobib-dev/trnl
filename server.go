@@ -93,11 +93,13 @@ func (s *Server) handleConnection(conn net.Conn) {
 
 	req, err := parseRequest(conn)
 	if err != nil {
-		// Respond with HTTP Status BadRequest
+		// Respond with HTTP Status BadRequest and flush response
 		res.WriteHeader(StatusBadRequest)
+		res.Flush()
 		return
 	}
 
 	res.header.Set("location", req.Header.Path)
 	s.Handler.ServeHTTP(res, req)
+	res.Flush()
 }

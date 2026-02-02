@@ -45,6 +45,11 @@ type ResponseWriter interface {
 	Write(p []byte) (int, error)
 }
 
+// Implement the flusher interface on response type
+type Flusher interface {
+	Flush() error
+}
+
 // Set response Header
 func (r *response) Header() Header {
 	return r.header
@@ -55,7 +60,6 @@ func (r *response) WriteHeader(status int) {
 	if r.wroteHeader {
 		return
 	}
-	r.status = status
 	r.wroteHeader = true
 
 	// Write protocol version and status
@@ -73,11 +77,14 @@ func (r *response) WriteHeader(status int) {
 // Write data to response body
 func (r *response) Write(p []byte) (int, error) {
 	if !r.wroteHeader {
-		r.WriteHeader(200)
+		r.WriteHeader(StatusOK)
 	}
 	return r.writer.Write(p)
 }
 
 func (r *response) Flush() error {
+	if !r.wroteHeader {
+		r.WriteHeader(200)
+	}
 	return r.writer.Flush()
 }
