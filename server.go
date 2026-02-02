@@ -87,9 +87,8 @@ func (s *Server) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	// Create temporary file - for debugging
-	path := fmt.Sprintf("log_%s_%d.txt",
-		conn.RemoteAddr().String(),
-		time.Now().UnixNano())
+	path := fmt.Sprintf("response_log_%v.txt",
+		time.Now())
 
 	logFile, err := os.Create(path)
 	if err != nil {
