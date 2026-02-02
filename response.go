@@ -74,7 +74,7 @@ func (r *response) WriteHeader(status int) {
 		panic(fmt.Sprintf("Invalid HTTP status code: %d. Please use a valid HTTP resposne code.", status))
 	}
 	// Write protocol version and status
-	fmt.Fprintf(r.writer, "%s: %d %s\r\n", r.protVer, status, msg)
+	fmt.Fprintf(r.writer, "%s %d %s\r\n", r.protVer, status, msg)
 
 	// Write headers
 	if err := r.header.Write(r.writer); err != nil {
