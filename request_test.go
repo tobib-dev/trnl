@@ -2,6 +2,7 @@ package trnl
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -31,6 +32,14 @@ func (m *mockConn) Close() error {
 }
 
 func readersEqual(r1, r2 io.Reader) (bool, error) {
+	if r1 == nil && r2 == nil {
+		return true, nil
+	}
+
+	if r1 == nil || r2 == nil {
+		return false, nil
+	}
+
 	b1, err := io.ReadAll(r1)
 	if err != nil {
 		return false, err
@@ -47,7 +56,7 @@ func readersEqual(r1, r2 io.Reader) (bool, error) {
 func TestParseRequest(t *testing.T) {
 
 	// Valid request
-	content := "POST /users HTTP/1.1\nContent-Type: application/json\nContent-Length: 18\n\n{'data': 'ABC123'}"
+	content := "POST /users HTTP/1.1\r\nContent-Type: application/json\r\nContent-Length: 18\r\n\r\n{'data': 'ABC123'}"
 
 	vConn := &mockConn{
 		buffer: new(bytes.Buffer),
@@ -69,12 +78,13 @@ func TestParseRequest(t *testing.T) {
 	}
 
 	// Invalid request
-	noProtContent := "GET /users"
+	noProtCnt := "GET /users\r\nContent-Type: application/json\r\nContent-Length: 0\r\n\r\n"
 	noProtVer := &mockConn{
 		buffer: new(bytes.Buffer),
 	}
-	fmt.Fprint(noProtVer, noProtContent)
-	//npvMsg := fmt.Sprintf("Invalid request format: %s. Usage: <Method> <Path> <metadata>", invalidContent)
+	fmt.Fprint(noProtVer, noProtCnt)
+	npvMsg := fmt.Sprintf("Invalid request format: %s. Usage: <Method> <Path> <metadata>",
+		"GET /users\r\n")
 
 	var tests = []struct {
 		name string
@@ -83,7 +93,10 @@ func TestParseRequest(t *testing.T) {
 		e    error
 	}{
 		{"valid request", vConn, vReq, nil},
-		//{"no http version", noProtVer, Request{}, errors.New(npvMsg)},
+		{"no http version", noProtVer, Request{
+			Header: RequestHeader{},
+			Body:   bytes.NewBuffer(nil),
+		}, errors.New(npvMsg)},
 	}
 
 	for _, tt := range tests {
@@ -92,8 +105,16 @@ func TestParseRequest(t *testing.T) {
 
 			tt.have.SetReadDeadline(time.Now().Add(time.Second))
 			res, err := parseRequest(tt.have)
-			if err != nil && err.Error() != tt.e.Error() {
+			if (err == nil) && (tt.e != nil) {
+				t.Errorf("test failed - got error %v, want error %v", err, tt.e)
+				return
+			} else if err != nil && tt.e != nil && err.Error() != tt.e.Error() {
 				t.Errorf("test failed - got %v, want %v", err, tt.e)
+				return
+			}
+
+			if tt.e == nil && res == nil {
+				t.Fatalf("parseRequest returned nil res when no error was expected")
 			}
 			if res != nil {
 				if res.Header.Method != tt.want.Header.Method ||
@@ -102,11 +123,13 @@ func TestParseRequest(t *testing.T) {
 					res.Header.ContentType != tt.want.Header.ContentType ||
 					res.Header.ProtocolVersion != tt.want.Header.ProtocolVersion {
 					t.Errorf("test failed - got Header: %v, want Header: %v", &res.Header, tt.want.Header)
+					return
 				}
 
 				eq, err := readersEqual(res.Body, tt.want.Body)
-				if err != nil || !eq {
+				if err != nil && !eq {
 					t.Errorf("test failed - got %v, want %v", &res.Body, tt.want)
+					return
 				}
 			}
 		})
