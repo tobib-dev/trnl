@@ -77,7 +77,7 @@ func TestParseRequest(t *testing.T) {
 		Body: buf,
 	}
 
-	// Invalid request
+	// Invalid request - no protocol version
 	noProtCnt := "GET /users\r\nContent-Type: application/json\r\nContent-Length: 0\r\n\r\n"
 	noProtVer := &mockConn{
 		buffer: new(bytes.Buffer),
@@ -85,6 +85,15 @@ func TestParseRequest(t *testing.T) {
 	fmt.Fprint(noProtVer, noProtCnt)
 	npvMsg := fmt.Sprintf("Invalid request format: %s. Usage: <Method> <Path> <metadata>",
 		"GET /users\r\n")
+
+	// Invalid request - no http method
+	noMethodCnt := "/users HTTP/1.1\r\nContent-Type: application/json\r\nContent-Length: 0\r\n\r\n"
+	noMethod := &mockConn{
+		buffer: new(bytes.Buffer),
+	}
+	fmt.Fprint(noMethod, noMethodCnt)
+	nmMsg := fmt.Sprintf("Invalid request format: %s. Usage: <Method> <Path> <metadata>",
+		"/users HTTP/1.1\r\n")
 
 	var tests = []struct {
 		name string
@@ -97,6 +106,10 @@ func TestParseRequest(t *testing.T) {
 			Header: RequestHeader{},
 			Body:   bytes.NewBuffer(nil),
 		}, errors.New(npvMsg)},
+		{"no http method", noMethod, Request{
+			Header: RequestHeader{},
+			Body:   bytes.NewBuffer(nil),
+		}, errors.New(nmMsg)},
 	}
 
 	for _, tt := range tests {
