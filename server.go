@@ -19,10 +19,6 @@ type HandlerFunc func(ResponseWriter, *Request)
 
 func (f HandlerFunc) ServeHTTP(w ResponseWriter, r *Request) { f(w, r) }
 
-type Listener struct {
-	net.Listener
-}
-
 type Server struct {
 	Addr        string
 	Handler     Handler
