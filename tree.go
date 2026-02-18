@@ -101,3 +101,7 @@ func DefaultTrieRouter() *TrieRouter {
 		},
 	}
 }
+
+func (r *TrieRouter) Get(path string, handler any) {
+	r.addRoute("GET", path, handler)
+}
