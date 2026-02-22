@@ -23,6 +23,7 @@ type RequestHeader struct {
 type Request struct {
 	Header RequestHeader
 	Body   io.Reader
+	Params map[string]string
 }
 
 /*
@@ -109,7 +110,7 @@ func parseRequest(conn net.Conn) (*Request, error) {
 		return &Request{}, fmt.Errorf("Failed to read request body: %w", err)
 	}
 
-	return &Request{Header: header, Body: bodyBytes}, nil
+	return &Request{Header: header, Body: bodyBytes, Params: make(map[string]string)}, nil
 }
 
 func copyBody(dst *bytes.Buffer, src *bufio.Reader, cntLen int) (n int64, err error) {

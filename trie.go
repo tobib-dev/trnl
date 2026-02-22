@@ -130,7 +130,7 @@ func (m *Mux) matchRoute(method, path string) routeMatch {
 
 	// Check if method is allowed for path
 	handlr, ok := node.handlers[method]
-	match.pathExists = true
+	match.pathExists = node.endOfPath
 	if !ok {
 		return match // method not allowed
 	}
