@@ -34,3 +34,55 @@ srv = &trnl.Server{
   ReadTimeout: 500 // Time Duration in milliseconds
 }
 ```
+
+### Adding Routes
+Trnl supports the standard HTTP methods: GET, POST, PUT, DELETE.
+
+```
+mux.Get("/hello", func(w trnl.ResponseWriter, r *trnl.Request) {
+    w.Write([]byte("Hello from Trnl!"))
+})
+
+mux.Get("/api/data", apiHandler)
+```
+
+### Start Server
+```
+if err := srv.ListenAndServe(); err != nil {
+    panic(err)
+}
+```
+
+### Sample REST API Handler 
+This is an example of a simple REST API handler that writes a JSON response back to the client.
+
+```
+func apiHandler(w trnl.ResponseWriter, r *trnl.Request) {
+    w.Header().Set("Content-Type", "application/json")
+    w.WriteHeader(trnl.StatusOK)
+    w.Write([]byte(`{"message": "Hello, World!"}`))
+}
+```
+
+### Dynamic Routes
+Trnl supports dynamic routing with named parameters. Use a colon (`:`) prefix in the route path to define a parameter.
+
+```
+// Using handleFunc
+mux.Get("/users/:id", func(w trnl.ResponseWriter, r *trnl.Request) {
+    // Retrieve the parameter value
+    id, err := r.Params("id")
+    if err != nil {
+        w.WriteHeader(trnl.StatusBadRequest)
+        w.Write([]byte("Missing ID parameter"))
+        return
+    }
+    w.Write([]byte("User ID: " + id))
+})
+
+// Using handler functions
+mux.Get("/users/:id", getUserById)
+```
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
