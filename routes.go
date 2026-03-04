@@ -1,5 +1,7 @@
 package trnl
 
+import "maps"
+
 /*
  * Serve request using method and route, respond with 404 if endpoint is not found
  */
@@ -18,9 +20,10 @@ func (m *Mux) ServeHTTP(w ResponseWriter, r *Request) {
 
 	// If endpoint has parameters load params into the request
 	if match.hasParams {
-		for k, v := range match.params {
-			r.Params[k] = v
+		if r.params == nil {
+			r.params = make(map[string]string)
 		}
+		maps.Copy(r.params, match.params)
 	}
 
 	match.handler.ServeHTTP(w, r)

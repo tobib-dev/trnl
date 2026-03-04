@@ -23,7 +23,19 @@ type RequestHeader struct {
 type Request struct {
 	Header RequestHeader
 	Body   io.Reader
-	Params map[string]string
+	params map[string]string
+}
+
+/*
+ * Return request parameter value and nil if available
+ * else return empty string and error
+ */
+func (r *Request) Params(key string) (string, error) {
+	prm, ok := r.params[key]
+	if !ok {
+		return "", fmt.Errorf("no parameters with the key: %s", key)
+	}
+	return prm, nil
 }
 
 /*
@@ -110,7 +122,7 @@ func parseRequest(conn net.Conn) (*Request, error) {
 		return &Request{}, fmt.Errorf("Failed to read request body: %w", err)
 	}
 
-	return &Request{Header: header, Body: bodyBytes, Params: make(map[string]string)}, nil
+	return &Request{Header: header, Body: bodyBytes, params: make(map[string]string)}, nil
 }
 
 func copyBody(dst *bytes.Buffer, src *bufio.Reader, cntLen int) (n int64, err error) {
