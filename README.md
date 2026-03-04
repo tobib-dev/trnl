@@ -86,6 +86,7 @@ mux.Get("/users/:id", getUserById)
 
 ## Future Roadmap
 - Client Interface
+- Request Context
 - Query Parameters support for endpoints
 
 ## License
