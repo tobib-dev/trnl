@@ -1,16 +1,16 @@
 package trnl
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"io"
 	"log"
-	"reflect"
-	"strconv"
+	"strings"
 	"testing"
 )
 
-func TestAddAndMatchRoute(t *testing.T) {
+func TestRoutingAndHandling(t *testing.T) {
 	r := Default()
 	pUId := "/api/users/7878"
 	pNoId := "/api/users"
@@ -18,8 +18,10 @@ func TestAddAndMatchRoute(t *testing.T) {
 	pMap := make(map[string]string)
 	pMap["id"] = "7878"
 
-	createBody := `{"Name": "John Wick", "UserId": "7878", "Email": "jh@example.com", "Password": "passingBy"}`
-	updateBody := `{"Name": "Jonathan Wick"}`
+	createBody := `{"name":"John Wick","user_id":"7878","email":"jh@example.com","password":"passingBy"}`
+	updateBody := `{"name":"Jonathan Wick"}`
+	getBody := `[{"name":"John Doe","user_id":"1234","email":"jd@example.com","password":"pass1234"},{"name":"Jane Doe","user_id":"5678","email":"jd1@example.com","password":"pass5678"},{"name":"Bob Dylan","user_id":"9012","email":"bd@example.com","password":"password1"},{"name":"Alice Jones","user_id":"3456","email":"aj@example.com","password":"word0987"},{"name":"Decagon Ten","user_id":"7890","email":"dt@example.com","password":"worded22"},{"name":"John Wick","user_id":"7878","email":"jh@example.com","password":"passingBy"}]`
+	delBody := `[{"name":"John Doe","user_id":"1234","email":"jd@example.com","password":"pass1234"},{"name":"Jane Doe","user_id":"5678","email":"jd1@example.com","password":"pass5678"},{"name":"Bob Dylan","user_id":"9012","email":"bd@example.com","password":"password1"},{"name":"Alice Jones","user_id":"3456","email":"aj@example.com","password":"word0987"},{"name":"Decagon Ten","user_id":"7890","email":"dt@example.com","password":"worded22"}]`
 
 	cBytes := []byte(createBody)
 	cBuf := bytes.NewBuffer(cBytes)
@@ -34,46 +36,85 @@ func TestAddAndMatchRoute(t *testing.T) {
 	r.addRoute("DELETE", "/api/users/:id", deleteUserById)
 
 	tests := []struct {
-		name string
-		req  *Request
-		want routeMatch
+		name       string
+		req        *Request
+		wantStatus int
+		wantBody   string
 	}{
-		{"create user", &Request{Header: RequestHeader{Method: "POST", Path: pNoId}, Body: cBuf}, routeMatch{HandlerFunc(createUser), nil, false, true}},
-		{"get users", &Request{Header: RequestHeader{Method: "GET", Path: pNoId}}, routeMatch{HandlerFunc(getUsers), nil, false, true}},
-		{"get user by id", &Request{Header: RequestHeader{Method: "GET", Path: pUId}}, routeMatch{HandlerFunc(getUserById), pMap, true, true}},
-		{"update user by id", &Request{Header: RequestHeader{Method: "PUT", Path: pUId}, Body: uBuf}, routeMatch{HandlerFunc(updateUserById), pMap, true, true}},
-		{"delete user by id", &Request{Header: RequestHeader{Method: "DELETE", Path: pUId}}, routeMatch{HandlerFunc(deleteUserById), pMap, true, true}},
+		{
+			name: "create user",
+			req: &Request{
+				Header: RequestHeader{Method: "POST", Path: pNoId},
+				Body:   cBuf,
+			},
+			wantStatus: StatusOK,
+			wantBody:   createBody,
+		},
+		{
+			name: "get users",
+			req: &Request{
+				Header: RequestHeader{Method: "GET", Path: pNoId},
+			},
+			wantStatus: StatusOK,
+			wantBody:   getBody,
+		},
+		{
+			name: "get user by id",
+			req: &Request{
+				Header: RequestHeader{Method: "GET", Path: pUId},
+			},
+			wantStatus: StatusOK,
+			wantBody:   createBody,
+		},
+		{
+			name: "update user by id",
+			req: &Request{
+				Header: RequestHeader{Method: "PUT", Path: pUId},
+				Body:   uBuf,
+			},
+			wantStatus: StatusOK,
+			wantBody:   `{"name":"Jonathan Wick","user_id":"7878","email":"jh@example.com","password":"passingBy"}`,
+		},
+		{
+			name: "delete user by id",
+			req: &Request{
+				Header: RequestHeader{Method: "DELETE", Path: pUId},
+			},
+			wantStatus: StatusOK,
+			wantBody:   delBody,
+		},
 	}
 
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-			m := r.matchRoute(tt.req.Header.Method, tt.req.Header.Path)
-			if reflect.ValueOf(m.handler).Pointer() != reflect.ValueOf(tt.want.handler).Pointer() {
-				t.Errorf("handler incorrect: got %v, want %v", m.handler, tt.want.handler)
+			var buf bytes.Buffer
+			res := &response{
+				writer: bufio.NewWriter(&buf),
+				header: make(Header),
+			}
+
+			// Serve request
+			r.ServeHTTP(res, tt.req)
+			res.writer.Flush()
+
+			// Check status code
+			if res.status != tt.wantStatus {
+				t.Errorf("status incorrect: got %v, want %v", res.status, tt.wantStatus)
 				return
 			}
 
-			// Normalize params maps before comparison
-			if m.params == nil {
-				m.params = make(map[string]string)
-			}
-			if tt.want.params == nil {
-				tt.want.params = make(map[string]string)
-			}
-
-			if !reflect.DeepEqual(m.params, tt.want.params) {
-				t.Errorf("invalid params: got %v, want %v", m.params, tt.want.params)
+			// Check response body
+			gotBody := buf.String()
+			parts := strings.SplitN(gotBody, "\r\n\r\n", 2)
+			if len(parts) < 2 {
+				t.Errorf("response format incorrect: got %v", gotBody)
 				return
 			}
 
-			if m.hasParams != tt.want.hasParams {
-				t.Errorf("invalid route type: got %v, want %v", m.hasParams, tt.want.hasParams)
-				return
-			}
-
-			if m.pathExists != tt.want.pathExists {
-				t.Errorf("invalid path exists value: got %v, want %v", m.pathExists, tt.want.pathExists)
+			body := parts[1]
+			if body != tt.wantBody {
+				t.Errorf("body incorrect: got %v, want %v", body, tt.wantBody)
 				return
 			}
 		})
@@ -82,29 +123,31 @@ func TestAddAndMatchRoute(t *testing.T) {
 
 type mockUser struct {
 	Name     string `json:"name"`
-	UserId   int    `json:"userId"`
+	UserId   string `json:"user_id"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
 var db = []mockUser{
-	mockUser{"John Doe", 1234, "jd@example.com", "pass1234"},
-	mockUser{"Jane Doe", 5678, "jd1@example.com", "pass5678"},
-	mockUser{"Bob Dylan", 9012, "bd@example.com", "password1"},
-	mockUser{"Alice Jones", 3456, "aj@example.com", "word0987"},
-	mockUser{"Decagon Ten", 7890, "dt@example.com", "worded22"},
+	mockUser{"John Doe", "1234", "jd@example.com", "pass1234"},
+	mockUser{"Jane Doe", "5678", "jd1@example.com", "pass5678"},
+	mockUser{"Bob Dylan", "9012", "bd@example.com", "password1"},
+	mockUser{"Alice Jones", "3456", "aj@example.com", "word0987"},
+	mockUser{"Decagon Ten", "7890", "dt@example.com", "worded22"},
 }
 
 func createUser(w ResponseWriter, r *Request) {
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Printf("Read error: %v", err)
+		w.WriteHeader(StatusInternalServerError)
 		return
 	}
 
 	dat := mockUser{}
 	if err = json.Unmarshal(b, &dat); err != nil {
 		log.Printf("unmarshal error: %v", err)
+		w.WriteHeader(StatusBadRequest)
 		return
 	}
 
@@ -114,7 +157,11 @@ func createUser(w ResponseWriter, r *Request) {
 	usrB, err := json.Marshal(usr)
 	if err != nil {
 		log.Printf("Marshalling error: %v", err)
+		w.WriteHeader(StatusInternalServerError)
+		return
 	}
+
+	w.WriteHeader(StatusOK)
 	w.Write(usrB)
 }
 
@@ -122,23 +169,25 @@ func getUsers(w ResponseWriter, r *Request) {
 	users, err := json.Marshal(db)
 	if err != nil {
 		log.Printf("Marshalling error: %v", err)
+		w.WriteHeader(StatusInternalServerError)
+		return
 	}
 
+	w.WriteHeader(StatusOK)
 	w.Write(users)
 }
 
 func getUserById(w ResponseWriter, r *Request) {
-	userId := r.Params["id"]
-	i64, err := strconv.ParseInt(userId, 10, 0)
+	userId, err := r.Params("id")
 	if err != nil {
-		log.Printf("Int parse error: %v", err)
+		log.Printf("Error retrieving parameter: %v", err)
+		w.WriteHeader(StatusBadRequest)
 		return
 	}
-	usrId := int(i64)
 	user := mockUser{}
 
 	for _, usr := range db {
-		if usr.UserId == usrId {
+		if usr.UserId == userId {
 			user = usr
 			break
 		}
@@ -147,8 +196,11 @@ func getUserById(w ResponseWriter, r *Request) {
 	usrB, err := json.Marshal(user)
 	if err != nil {
 		log.Printf("Marshalling error: %v", err)
+		w.WriteHeader(StatusInternalServerError)
+		return
 	}
 
+	w.WriteHeader(StatusOK)
 	w.Write(usrB)
 }
 
@@ -161,24 +213,25 @@ func updateUserById(w ResponseWriter, r *Request) {
 	b, err := io.ReadAll(r.Body)
 	if err != nil {
 		log.Printf("Read request body error: %v", err)
+		w.WriteHeader(StatusInternalServerError)
 		return
 	}
 	if err = json.Unmarshal(b, &prm); err != nil {
 		log.Printf("Unmarshal error: %v", err)
+		w.WriteHeader(StatusInternalServerError)
 		return
 	}
 
-	userId := r.Params["id"]
-	i64, err := strconv.ParseInt(userId, 10, 0)
+	userId, err := r.Params("id")
 	if err != nil {
-		log.Printf("Int parse error: %v", err)
+		log.Printf("Error retrieving parameter: %v", err)
+		w.WriteHeader(StatusInternalServerError)
 		return
 	}
-	usrId := int(i64)
 	user := mockUser{}
 
 	for i := range db {
-		if db[i].UserId == usrId {
+		if db[i].UserId == userId {
 			db[i].Name = prm.Name
 			user = db[i]
 			break
@@ -188,23 +241,25 @@ func updateUserById(w ResponseWriter, r *Request) {
 	dat, err := json.Marshal(user)
 	if err != nil {
 		log.Printf("Marshalling error: %v", err)
+		w.WriteHeader(StatusInternalServerError)
+		return
 	}
 
+	w.WriteHeader(StatusOK)
 	w.Write(dat)
 }
 
 func deleteUserById(w ResponseWriter, r *Request) {
-	userId := r.Params["id"]
-	i64, err := strconv.ParseInt(userId, 10, 0)
+	userId, err := r.Params("id")
 	if err != nil {
-		log.Printf("Int parse error: %v", err)
+		log.Printf("Error retrieving parameter: %v", err)
+		w.WriteHeader(StatusInternalServerError)
 		return
 	}
-	usrId := int(i64)
 	newUsers := []mockUser{}
 
 	for _, usr := range db {
-		if usr.UserId != usrId {
+		if usr.UserId != userId {
 			newUsers = append(newUsers, usr)
 		}
 	}
@@ -213,7 +268,10 @@ func deleteUserById(w ResponseWriter, r *Request) {
 	users, err := json.Marshal(db)
 	if err != nil {
 		log.Printf("Marshalling error: %v", err)
+		w.WriteHeader(StatusInternalServerError)
+		return
 	}
 
+	w.WriteHeader(StatusOK)
 	w.Write(users)
 }
