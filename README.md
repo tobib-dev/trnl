@@ -84,5 +84,9 @@ mux.Get("/users/:id", func(w trnl.ResponseWriter, r *trnl.Request) {
 mux.Get("/users/:id", getUserById)
 ```
 
+## Future Roadmap
+- Client Interface
+- Query Parameters support for endpoints
+
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
